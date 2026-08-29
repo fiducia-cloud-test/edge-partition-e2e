@@ -28,14 +28,14 @@
       "fullName": "fiducia-cloud/fiducia-edge",
       "exists": true,
       "branch": "main",
-      "sha": "d01776fea3fcc897003cbb214548e72b6f953f5f",
+      "sha": "f1449504f67ae8fb642addd667894612068e1014",
       "visibility": "public"
     },
     {
       "fullName": "fiducia-cloud/fiducia-node-sidecar.rs",
       "exists": true,
       "branch": "main",
-      "sha": "403d5decea4e65f2bd4c72551353f8124239c227",
+      "sha": "b1e54a5ecaa8fb8efdcf81b243e434e4d2b15269",
       "visibility": "public"
     }
   ],
@@ -45,6 +45,9 @@
     "immutableSourcePins": true,
     "pullRequestCredentials": false,
     "leastPrivilege": true,
-    "redactSecretsAndRawMedia": true
+    "redactSecretsAndRawMedia": true,
+    "protectedSourceIntegration": true,
+    "protectedSourceIntegrationStatus": "not-executed-unless-protected-lane-runs",
+    "productOverlayPreserved": true
   }
 }
