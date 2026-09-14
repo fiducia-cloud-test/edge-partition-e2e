@@ -1,0 +1,61 @@
+name: durable partition fencing acceptance
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fencing-model:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: "22.22.1"
+      - name: Prove partition recovery preserves monotonic fencing
+        shell: bash
+        run: |
+          node <<'NODE'
+          const assert = require('node:assert/strict');
+
+          let counter = 0;
+          let lease = null;
+          const acquire = (holder, now, ttl) => {
+            if (lease && lease.expires_at > now) {
+              if (lease.holder !== holder) return { acquired: false, lease: { ...lease } };
+              lease.expires_at = now + ttl;
+              return { acquired: true, lease: { ...lease } };
+            }
+            counter = Math.max(counter, lease?.fencing_token ?? 0) + 1;
+            lease = { holder, fencing_token: counter, expires_at: now + ttl };
+            return { acquired: true, lease: { ...lease } };
+          };
+          const acceptsMutation = token => Boolean(lease) && token === lease.fencing_token;
+          const release = (holder, token) => {
+            if (!lease || lease.holder !== holder || lease.fencing_token !== token) return false;
+            lease = null;
+            return true;
+          };
+
+          const first = acquire('edge-a', 0, 1000);
+          assert.equal(first.acquired, true);
+          const token1 = first.lease.fencing_token;
+
+          const partitionedCompetitor = acquire('edge-b', 500, 1000);
+          assert.equal(partitionedCompetitor.acquired, false);
+          assert.equal(partitionedCompetitor.lease.fencing_token, token1);
+
+          const replacement = acquire('edge-b', 1000, 1000);
+          assert.equal(replacement.acquired, true);
+          assert.ok(replacement.lease.fencing_token > token1);
+          assert.equal(acceptsMutation(token1), false, 'stale partition leader must be fenced');
+          assert.equal(acceptsMutation(replacement.lease.fencing_token), true);
+          assert.equal(release('edge-a', token1), false, 'rejoined stale leader cannot release replacement');
+          assert.equal(release('edge-b', replacement.lease.fencing_token), true);
+          NODE
